@@ -1,0 +1,286 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <title>Kendo UI Snippet</title>
+    <script src="~/Kendo/js/jquery.min.js"></script>
+    <script src="~/Kendo/js/kendo.all.min.js"></script>
+    <link href="~/Kendo/styles/kendo.common.min.css" rel="stylesheet" />
+    <link rel="stylesheet" href="https://kendo.cdn.telerik.com/2022.2.621/styles/kendo.default.min.css">
+</head>
+<body>
+
+    <div id="example">
+        <div id="team-schedule">
+            <div id="people">
+                <span style="background-color:red"> <input checked type="checkbox" id="alex" value="1">ETA</span>
+                <span style="background-color:green">
+                    <input checked type="checkbox" id="bob" value="2">ETB
+                </span>
+                <span style="background-color:yellow"><input type="checkbox" id="charlie" value="3">ETC</span>
+            </div>
+        </div>
+        <div id="scheduler"></div>
+    </div>
+    <script id="event-template" type="text/x-kendo-template">
+        <div class="movie-template">
+            <p>
+                #: kendo.toString(start, "hh:mm") # - #: kendo.toString(end, "hh:mm") #
+            </p>
+            <h3>#: CustomerName #</h3>
+            <p>#: description #</p>
+        </div>
+    </script>
+    <script id="customEditorTemplate" type="text/x-kendo-template">
+        <div class="k-edit-label"><label for="CustomerName">CustomerName</label></div>
+        <div data-container-for="CustomerName" class="k-edit-field">
+            <input type="text" data-role="textbox" name="CustomerName" required="required" data-bind="value:CustomerName">
+        </div>
+        <div class="k-edit-label">
+            <label for="startdate">Start</label>
+        </div>
+        <div data-container-for="startdate" class="k-edit-field">
+            <input type="text"
+                   data-role="datetimepicker"
+                   data-interval="15"
+                   data-type="date"
+                   data-bind="value:startdate,invisible:isAllDay"
+                   name="start" />
+            <input type="text" data-type="date" data-role="datepicker" data-bind="value:startdate,visible:isAllDay" name="startdate" />
+            <span data-bind="text: startTimezone"></span>
+            <span data-for="startdate" class="k-invalid-msg" style="display: none;"></span>
+        </div>
+        <div class="k-edit-label"><label for="enddate">enddate</label></div>
+        <div data-container-for="enddate" class="k-edit-field">
+            <input type="text" data-type="date" data-role="datetimepicker" data-bind="value:enddate,invisible:isAllDay" name="enddate" data-datecompare-msg="End date should be greater than or equal to the start date" />
+            <input type="text" data-type="date" data-role="datepicker" data-bind="value:enddate,visible:isAllDay" name="enddate" data-datecompare-msg="End date should be greater than or equal to the start date" />
+            <span data-bind="text: endTimezone"></span>
+            <span data-bind="text: startTimezone, invisible: endTimezone"></span>
+            <span data-for="enddate" class="k-invalid-msg" style="display: none;"></span>
+        </div>
+        
+        @*<div class="k-edit-label"><label for="ownerId">Owner</label></div>
+        <div data-container-for="ownerId" class="k-edit-field">
+            <select id="ownerId" data-bind="value:ownerId" data-role="dropdownlist"
+                    data-value-field="value" data-text-field="text">
+                <option value="1">ETA</option>
+                <option value="2">ETB</option>
+                <option value="3">ETC</option>
+            </select>
+        </div>*@
+    </script>
+    <script>
+        $(function () {
+            function scheduler_change(e) {
+                if (e.events.length) {
+                    console.log(e.events[0].title)
+                }
+            }
+            var urlParams;
+            (window.onpopstate = function () {
+                var match,
+                    pl = /\+/g,  // Regex for replacing addition symbol with a space
+                    search = /([^&=]+)=?([^&]*)/g,
+                    decode = function (s) { return decodeURIComponent(s.replace(pl, " ")); },
+                    query = window.location.search.substring(1);
+
+                urlParams = {};
+                while (match = search.exec(query))
+                    urlParams[decode(match[1])] = decode(match[2]);
+            })();
+            $("#scheduler").kendoScheduler({
+                date: new Date("2013/6/13"),
+                startTime: new Date("2013/6/13 07:00 AM"),
+                height: 600,
+                views: [
+                    "day",
+                    { type: "workWeek", selected: true },
+                    "week",
+                    "month",
+                    "agenda"
+                ],
+                editable: {
+                    template: $("#customEditorTemplate").html(),
+                },
+                eventTemplate: $("#event-template").html(),
+                edit: function (e) {
+                    var recurrenceEditor = e.container.find("[data-role=recurrenceeditor]").data("kendoRecurrenceEditor");
+
+                    // Set the start option value. Used to define the week 'Repeat on' selected checkboxes.
+                    recurrenceEditor.setOptions({
+                        start: new Date(e.event.startdate)
+                    });
+                },
+                selectable: true,
+                change: scheduler_change,
+                timezone: "Etc/UTC",
+                dataSource: {
+                    batch: true,
+                    transport: {
+                        read: {
+                            url: "https://demos.telerik.com/kendo-ui/service/tasks",
+                            dataType: "jsonp"
+                        },
+                        update: {
+                            url: "https://demos.telerik.com/kendo-ui/service/tasks/update",
+                            dataType: "jsonp"
+                        },
+                        create: {
+                            url: "https://demos.telerik.com/kendo-ui/service/tasks/create",
+                            dataType: "jsonp"
+                        },
+                        destroy: {
+                            url: "https://demos.telerik.com/kendo-ui/service/tasks/destroy",
+                            dataType: "jsonp"
+                        },
+                        
+                        parameterMap: function (options, operation) {
+                            if (operation !== "read" && options.models) {
+                                return { models: kendo.stringify(options.models) };
+                            }
+                        }
+                    },
+                    schema: {
+                        data: function (response) {
+                            var hardCodedResponse = "[{\"SRSequence\":\"1000\",\"VIN\":\"12345\",\"CustomerName\":\"Cowan\",\"ETA\":\"2022-07-0216:46:41.250\",\"ETB\":\"2022-07-0616:46:41.250\",\"ETC\":\"2022-07-0816:46:41.250\",\"startdate\":\"2022-07-0816:00:00.000\",\"enddate\":\"2022-07-0816:30:00.000\",\"StartTimezone\":\"\",\"EndTimezone\":\"\"},{\"SRSequence\":\"1001\",\"VIN\":\"123456\",\"CustomerName\":\"Cowan\",\"ETA\":\"2022-07-0216:46:41.250\",\"ETB\":\"2022-07-0616:46:41.250\",\"ETC\":\"2022-07-0816:46:41.250\",\"startdate\":\"2022-07-0916:00:00.000\",\"enddate\":\"2022-07-0916:30:00.000\",\"StartTimezone\":\"\",\"EndTimezone\":\"\"}]";
+                            return hardCodedResponse; // twitter's response is { "statuses": [ /* results */ ] }
+                        },
+                        model: {
+                            id: "taskId",
+                            fields: {
+                                SRSequence: { from: "SRSequence", type: "number" },
+                                VIN: { from: "VIN", type: "number" },
+                                CustomerName: { from: "CustomerName", defaultValue: "No title", validation: { required: true } },
+                                ETA: { type: "date", from: "ETA" },
+                                ETB: { type: "date", from: "ETB" },
+                                ETC: { type: "date", from: "ETC" },
+                                startdate: { type: "date", from: "startdate" },
+                                enddate: { type: "date", from: "enddate" },
+                                startTimezone: { from: "StartTimezone" },
+                                endTimezone: { from: "EndTimezone" },
+                                
+                            }
+
+                            //fields: {
+                            //    taskId: { from: "SRID", type: "number" },
+                            //    title: { from: "Title", defaultValue: "No title", validation: { required: true } },
+                            //    start: { type: "date", from: "Start" },
+                            //    end: { type: "date", from: "End" },
+                            //    startTimezone: { from: "StartTimezone" },
+                            //    endTimezone: { from: "EndTimezone" },
+                            //    description: { from: "Description" },
+                            //    recurrenceId: { from: "RecurrenceID" },
+                            //    recurrenceRule: { from: "RecurrenceRule" },
+                            //    recurrenceException: { from: "RecurrenceException" },
+                            //    ownerId: { from: "OwnerID", defaultValue: 1 },
+                            //    isAllDay: { type: "boolean", from: "IsAllDay" }
+                            //}
+                        }
+                    },
+                    //filter: {
+                    //    logic: "or",
+                    //    filters: [
+                    //        { field: "ownerId", operator: "eq", value: 1 },
+                    //        { field: "ownerId", operator: "eq", value: 2 }
+                    //    ]
+                    //}
+                },
+                resources: [
+                    //{
+                    //    field: "ownerId",
+                    //    title: "Owner",
+                    //    dataSource: [
+                    //        { text: "ETA", value: 1, color: "#f8a398" },
+                    //        { text: "ETB", value: 2, color: "#51a0ed" },
+                    //        { text: "ETC", value: 3, color: "#56ca85" }
+                    //    ]
+                    //}
+                ]
+            });
+
+            $("#people :checkbox").change(function (e) {
+                var checked = $.map($("#people :checked"), function (checkbox) {
+                    return parseInt($(checkbox).val());
+                });
+
+                var scheduler = $("#scheduler").data("kendoScheduler");
+
+                scheduler.dataSource.filter({
+                    operator: function (task) {
+                        return $.inArray(task.ownerId, checked) >= 0;
+                    }
+                });
+            });
+
+            $(function () {
+                $("#scheduler").kendoTooltip({
+                    filter: ".k-event",
+                    position: "top",
+                    width: 250,
+                    content: kendo.template($('#template').html())
+                });
+            });
+        });
+    </script>
+    <script id="template" type="text/x-kendo-template">
+        #var uid = target.attr("data-uid");#
+        #var scheduler = target.closest("[data-role=scheduler]").data("kendoScheduler");#
+        #var model = scheduler.occurrenceByUid(uid);#
+
+        #if(model) {#
+        <strong>event startdate:</strong> #=kendo.format('{0:g}',model.startdate)#
+        <br />
+        <strong>event enddate:</strong> #=kendo.format('{0:g}',model.enddate)#
+        <br />
+        <strong>event CustomerName:</strong> #=model.CustomerName#
+        <br />
+
+        #} else {#
+        <strong>No event data is available</strong>
+        #}#
+    </script>
+    <style scoped>
+
+        .k-nav-current > .k-link span + span {
+            max-width: 200px;
+            display: inline-block;
+            white-space: nowrap;
+            text-overflow: ellipsis;
+            overflow: hidden;
+            vertical-align: top;
+        }
+
+        #team-schedule {
+            /*background: url('../content/web/scheduler/team-schedule.png') transparent no-repeat;*/
+            height: 15px;
+            /*position: relative;*/
+        }
+
+        #people {
+            /*background: url('../content/web/scheduler/scheduler-people.png') no-repeat;*/
+            /*width: 345px;*/
+            height: 15px;
+            /*position: absolute;*/
+            /*right: 0;*/
+        }
+
+        /*  #alex {
+            position: absolute;
+            left: 4px;
+            top: 81px;
+        }
+
+        #bob {
+            position: absolute;
+            left: 119px;
+            top: 81px;
+        }
+
+        #charlie {
+            position: absolute;
+            left: 234px;
+            top: 81px;
+        }*/
+    </style>
+</body>
+</html>
